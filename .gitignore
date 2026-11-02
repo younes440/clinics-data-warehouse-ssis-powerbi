@@ -1,0 +1,23 @@
+# Visual Studio / SSIS
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.dtproj.user
+*.database
+
+# Power BI : ne versionner que le rapport de demonstration (donnees fictives)
+*.pbix
+!powerbi/rapport_demo.pbix
+*.pbit.bak
+
+# Donnees et secrets : ne JAMAIS commiter
+*.bak
+*.mdf
+*.ldf
+*.log
+logs/
+*.env
+secrets/
+*connection*.txt

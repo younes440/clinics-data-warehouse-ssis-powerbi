@@ -1,0 +1,69 @@
+// ============================================================
+// Rapport Power BI : table de dates, cles composites, mesures
+// A creer dans cet ordre (Modelisation > Nouvelle table / mesure)
+// ============================================================
+
+// ---------- Table de dates ----------
+Dim_Date =
+ADDCOLUMNS(
+    CALENDAR(DATE(2020, 1, 1), DATE(2027, 12, 31)),
+    "Annee", YEAR([Date]),
+    "Mois", MONTH([Date]),
+    "NomMois", FORMAT([Date], "MMMM"),
+    "Jour", DAY([Date])
+)
+
+// ---------- Cles composites (colonnes calculees) ----------
+// Power BI ne gere pas les relations sur plusieurs colonnes :
+// on concatene la cle metier et le code clinique.
+
+// Sur fact_ca
+CleNat = fact_ca[codnat] & "|" & fact_ca[code_clinique]
+CleMed = fact_ca[codmed] & "|" & fact_ca[code_clinique]
+
+// Sur dim_nationalite
+CleNat = dim_nationalite[codnat] & "|" & dim_nationalite[code_clinique]
+
+// Sur dim_medecin
+CleMed = dim_medecin[codmed] & "|" & dim_medecin[code_clinique]
+
+// Relations a creer dans la vue Modele :
+//   fact_ca[CleNat]  ->  dim_nationalite[CleNat]
+//   fact_ca[CleMed]  ->  dim_medecin[CleMed]
+//   fact_ca[datope]  ->  Dim_Date[Date]
+
+// ---------- Mesures de base ----------
+CA Total = SUM(fact_ca[ca])
+Nbr Admission = SUM(fact_ca[nbr_admission])
+
+// ---------- Granularites temporelles ----------
+CA N = CALCULATE([CA Total], Dim_Date[Date] = MAX(Dim_Date[Date]))
+CA Journalier = [CA N]
+
+CA Mensuel =
+VAR DateFin = MAX(Dim_Date[Date])
+VAR DateDebut = DATE(YEAR(DateFin), MONTH(DateFin), 1)
+RETURN
+    CALCULATE([CA Total], Dim_Date[Date] >= DateDebut && Dim_Date[Date] <= DateFin)
+
+CA Annuel =
+VAR DateFin = MAX(Dim_Date[Date])
+VAR DateDebut = DATE(YEAR(DateFin), 1, 1)
+RETURN
+    CALCULATE([CA Total], Dim_Date[Date] >= DateDebut && Dim_Date[Date] <= DateFin)
+
+CA Periode Libre =
+CALCULATE(
+    [CA Total],
+    Dim_Date[Date] >= MIN(Dim_Date[Date]),
+    Dim_Date[Date] <= MAX(Dim_Date[Date])
+)
+
+// ---------- Comparaison N / N-1 ----------
+CA N-1 = CALCULATE([CA Total], SAMEPERIODLASTYEAR(Dim_Date[Date]))
+
+Evolution = [CA N] - [CA N-1]
+% Evolution = DIVIDE([Evolution], [CA N-1], BLANK())
+
+// ---------- Indicateurs complementaires ----------
+Moy CA par Admission = DIVIDE([CA Total], [Nbr Admission], BLANK())
